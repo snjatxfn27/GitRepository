@@ -1,0 +1,21 @@
+1.新建文件目录/usr/unisib/app
+2.在1所示目录下新建 AccessCtrlRun.sh文件，chatter文件夹
+3.AccessCtrlRun.sh文件内容如下：
+#!/bin/bash
+
+sleep 10
+
+while [ true ];do
+        sleep 20
+        if [ -z "`ps aux|grep "chatter"|grep -v grep`" ];then
+        cd /usr/unisib/app/chatter
+        nohup ./chatter >/dev/null 2>&1 &
+        fi
+done
+4.修改/etc/rc.d/rc.local文件内容，添加如下一行：
+/usr/unisib/app/AccessCtrlRun.sh &
+5./usr/unisib/app/chatter文件夹内容同阵地控制，注意修改onlyid和serverip两个文件。
+6.删掉所有摄像机。
+7.将lib.....
+8.将script文件夹覆盖一体机/opt/FaceServer/etc下同名文件夹，并重启。
+9.向目录/usr/lib64目录下导入文件libevent-2.0.so.5与libhiredis.so.0.11。

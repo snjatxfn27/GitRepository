@@ -1,0 +1,250 @@
+#!/bin/bash
+
+if [ "$1" == "--help" ] || [ "$1" == "-help" ];then
+	echo 
+	echo "usage: $0 [OPTIONS]"
+	echo "[OPTIONS]"
+	echo "	rootpwd: os root password, configure host info"
+	echo "	autostart: start facecloud while os power on"
+	echo
+	echo "e.g. $0 rootpwd=123456 autostart=yes"
+	echo
+	exit 1
+fi
+
+if [ -z "${FRAME_ROOT}" ];then
+	echo "FRAME_ROOT not export"
+	exit 1
+fi
+
+mkdir -p /opt/fc_data/fc_disk/1
+
+CONF_PATH=${FRAME_ROOT}/etc
+
+dbselect=""
+
+unalias cp 2>/dev/null
+
+if [ -f "$FRAME_ROOT/etc/sys.conf" ];then
+	chmod 700 ${FRAME_ROOT}/etc/sys.conf
+	dbselect=`grep "using=" ${FRAME_ROOT}/etc/sys.conf|awk -F= '{print $2}'|awk '{print $1}'`
+fi
+
+local_host_list=`ifconfig|grep "inet addr:"|grep -v "127.0.0.1"|awk '{print $2}'|awk -F: '{print $2}'`
+ipAddr=`echo ${local_host_list}|awk '{print $1}'`
+if [ ! -z "${LOCAL_IP}" ];then
+	ipAddr=${LOCAL_IP}
+fi
+
+rootpwd=""
+autostart=""
+
+function configxml()
+{
+	rm -rf ${CONF_PATH}/Svc.xml
+
+	echo "<?xml version=\"1.0\"?>" > ${CONF_PATH}/Svc.xml
+	echo "<Services>" >> ${CONF_PATH}/Svc.xml
+	echo "	<Monitor ip=\"127.0.0.1\" port=\"13603\" />" >> ${CONF_PATH}/Svc.xml
+	echo "	<Service name=\"env_faceops\" ip=\"127.0.0.1\" dir=\"FaceCloud\" />" >> ${CONF_PATH}/Svc.xml
+	echo "</Services>" >> ${CONF_PATH}/Svc.xml
+
+
+	#local MysqlIP=`cat ${CONF_PATH}/ip_config.cfg|grep MysqlIP|awk -F"=" '{print $2}'`
+	#local Localhost=`cat ${CONF_PATH}/ip_config.cfg|grep Localhost|awk -F"=" '{print $2}'`
+
+	#sed -i "s/MysqlIP/${MysqlIP}/g" ${CONF_PATH}/FaceDB.xml
+	#sed -i "s/Localhost/${Localhost}/g" ${CONF_PATH}/Svc.xml
+}
+
+function createLink()
+{
+	ln -s ${FRAME_ROOT}/3rdTools/lib/libACE.so.6.1.0 ${FRAME_ROOT}/3rdTools/lib/libACE.so 2>/dev/null
+
+	ldconfig -n ${FRAME_ROOT}/3rdTools/lib
+	ldconfig -n ${FRAME_ROOT}/lib
+
+	rm -rf ${FRAME_ROOT}/lib/libotlWrapper.so 2>/dev/null
+	#rm -rf ${FRAME_ROOT}/lib/libimpDBWrapper.so 2>/dev/null
+
+	cd ${FRAME_ROOT}/lib
+
+	if [ ! -f libimpDBWrapper.so ];then
+		ln -s libnulldbWrapper.so libimpDBWrapper.so
+	fi
+
+	if [ "${dbselect}" = "mysql" ];then
+		ln -s libmyodbcWrapper.so libotlWrapper.so
+	else
+		ln -s liboraWrapper.so libotlWrapper.so
+	fi
+	cd - &>/dev/null
+}
+
+function facecloudconf()
+{
+	#mq_ip=${MQ_IP:-127.0.0.1}
+	mq_port=${MQ_PORT:-6379}
+
+	if [ -f "/etc/nginx/nginx.conf" ];then
+		#rm -rf /etc/nginx/nginx.conf /etc/nginx/fastcgi_params
+		cp ${CONF_PATH}/script/nginx.conf /etc/nginx/nginx.conf
+		cp ${CONF_PATH}/script/fastcgi_params /etc/nginx/fastcgi_params
+	fi
+
+	#package=`echo ${FRAME_ROOT}|awk -F"/opt/" '{print $2}'`
+	package=`echo ${FRAME_ROOT}|awk -F"/" '{print $NF}'`
+
+	#rm -rf ${CONF_PATH}/nodeinfo.conf
+	cp ${CONF_PATH}/nodeinfo-t.conf ${CONF_PATH}/nodeinfo.conf
+	sed -i "s#VIPADDR#${ipaddr}#g" ${CONF_PATH}/nodeinfo.conf
+	sed -i "s#VSQLUSER#${dbuser}#g" ${CONF_PATH}/nodeinfo.conf
+	sed -i "s#VSQLPWD#${dbpwd}#g" ${CONF_PATH}/nodeinfo.conf
+	sed -i "s#VPACKAGE#${package}#g" ${CONF_PATH}/nodeinfo.conf
+
+	#rm -rf ${CONF_PATH}/redis.conf
+	cp ${CONF_PATH}/redis-t.conf ${CONF_PATH}/redis.conf
+	sed -i "s#FRAME_ROOT#${FRAME_ROOT}#g" ${CONF_PATH}/redis.conf
+	sed -i "s#MQ_PORT#${mq_port}#g" ${CONF_PATH}/redis.conf
+	
+	rm -rf ${CONF_PATH}/script/start-facecloud.sh $CONF_PATH/script/fc_dog.sh
+	cp ${CONF_PATH}/script/start-facecloud-t.sh ${CONF_PATH}/script/start-facecloud.sh
+	cp $CONF_PATH/script/fc_dog-t.sh $CONF_PATH/script/fc_dog.sh
+	sed -i "s#MQ_PORT#${mq_port}#g" ${CONF_PATH}/script/start-facecloud.sh
+	sed -i "s#MQ_PORT#${mq_port}#g" ${CONF_PATH}/script/fc_dog.sh
+
+	if [ "${dbselect}" = "oracle" ];then
+		ipaddr=`grep "\[oracle\]" ${FRAME_ROOT}/etc/sys.conf |awk -F"IPADDR=" '{print $2}'|awk -F" " '{print $1}'`
+		dbuser=`grep "\[oracle\]" ${FRAME_ROOT}/etc/sys.conf |awk -F"DBUSER=" '{print $2}'|awk -F" " '{print $1}'`
+		dbpwd=`grep "\[oracle\]" ${FRAME_ROOT}/etc/sys.conf |awk -F"DBPWD=" '{print $2}'|awk -F" " '{print $1}'`
+		sid=`grep "\[oracle\]" ${FRAME_ROOT}/etc/sys.conf |awk -F"SID=" '{print $2}'|awk -F" " '{print $1}'`
+		mq_ip=${ipaddr}
+
+		desEncry ${dbuser} ${dbpwd} ${ipaddr} ${sid} fcdb.ini
+
+		if [ ! -z "$rootpwd" ];then
+			#rm -rf ${CONF_PATH}/script/conf-table.sql
+			cp ${CONF_PATH}/script/conf-table-t.sql ${CONF_PATH}/script/conf-table.sql
+			sed -i "s#VIPADDR#${ipaddr}#g" ${CONF_PATH}/script/conf-table.sql
+			sed -i "s#VHOSTNAME#${HOSTNAME}#g" ${CONF_PATH}/script/conf-table.sql
+			sed -i "s#MQ_IP#${mq_ip}#g" ${CONF_PATH}/script/conf-table.sql
+			sed -i "s#MQ_PORT#${mq_port}#g" ${CONF_PATH}/script/conf-table.sql
+			sed -i "s#VROOTPWD#${rootpwd}#g" ${CONF_PATH}/script/conf-table.sql
+			echo "quit" >> ${CONF_PATH}/script/conf-table.sql
+		fi
+	elif [ "${dbselect}" = "mysql" ];then
+		ipaddr=`grep "\[mysql\]" ${FRAME_ROOT}/etc/sys.conf |awk -F"IPADDR=" '{print $2}'|awk -F" " '{print $1}'`
+		dbuser=`grep "\[mysql\]" ${FRAME_ROOT}/etc/sys.conf |awk -F"DBUSER=" '{print $2}'|awk -F" " '{print $1}'`
+		dbpwd=`grep "\[mysql\]" ${FRAME_ROOT}/etc/sys.conf |awk -F"DBPWD=" '{print $2}'|awk -F" " '{print $1}'`
+		database=`grep "\[mysql\]" ${FRAME_ROOT}/etc/sys.conf |awk -F"DATABASE=" '{print $2}'|awk -F" " '{print $1}'`
+		dsn=`grep "\[mysql\]" ${FRAME_ROOT}/etc/sys.conf |awk -F"DSN=" '{print $2}'|awk -F" " '{print $1}'`
+		mq_ip=${ipaddr}
+
+		desEncry "${dbuser}/${dbpwd}@${dsn}" "${FRAME_ROOT}/etc/fcdb.ini"
+
+		if [ ! -z "$rootpwd" ];then
+			#rm -rf ${CONF_PATH}/script/conf-table.sql
+			cp ${CONF_PATH}/script/conf-table-t.sql ${CONF_PATH}/script/conf-table.sql
+			sed -i "s#VIPADDR#${ipaddr}#g" ${CONF_PATH}/script/conf-table.sql
+			sed -i "s#VHOSTNAME#${HOSTNAME}#g" ${CONF_PATH}/script/conf-table.sql
+			sed -i "s#MQ_IP#${mq_ip}#g" ${CONF_PATH}/script/conf-table.sql
+			sed -i "s#MQ_PORT#${mq_port}#g" ${CONF_PATH}/script/conf-table.sql
+			sed -i "s#sysdate#now()#g" ${CONF_PATH}/script/conf-table.sql
+			sed -i "s#VROOTPWD#${rootpwd}#g" ${CONF_PATH}/script/conf-table.sql
+		fi
+
+		#rm -rf ${CONF_PATH}/script/create-my-user.sql
+		cp ${CONF_PATH}/script/create-my-user-t.sql ${CONF_PATH}/script/create-my-user.sql
+		sed -i "s#VDB#${database}#g" ${CONF_PATH}/script/create-my-user.sql
+		sed -i "s#VUSER#${dbuser}#g" ${CONF_PATH}/script/create-my-user.sql
+		sed -i "s#VPWD#${dbpwd}#g" ${CONF_PATH}/script/create-my-user.sql
+		sed -i "s#VHOSTNAME#${HOSTNAME}#g" ${CONF_PATH}/script/create-my-user.sql
+
+		socket=`cat /etc/my.cnf|grep "^socket"|tail -n 1|awk -F"=" '{print $2}'|sed 's/ //g'`
+		if [ -z "$socket" ];then
+			socket="/var/lib/mysql/mysql.sock"
+		fi
+
+		if [ -z "`grep "fcdsn" /etc/odbc.ini`" ];then
+			cp $CONF_PATH/script/odbc-t.ini /etc/odbc.ini
+		fi
+
+		if [ -z "`grep "impdsn" /etc/odbc.ini`" ];then
+			sed -i "2a impdsn\t=\tMyODBC 5.2.5 Driver DSN" /etc/odbc.ini
+			echo >> /etc/odbc.ini
+			echo "[impdsn]" >> /etc/odbc.ini
+			echo "Driver		=	/usr/lib64/libmyodbc5w.so" >> /etc/odbc.ini
+			echo "Description	=	MyODBC 5.2.5 Driver DSN" >> /etc/odbc.ini
+			echo "SERVER		=	127.0.0.1" >> /etc/odbc.ini
+			echo "PORT		=	3306" >> /etc/odbc.ini
+			echo "USER		=" >> /etc/odbc.ini
+			echo "Password	=" >> /etc/odbc.ini
+			echo "Database	=	mydb" >> /etc/odbc.ini
+			echo "OPTION		=	3" >> /etc/odbc.ini
+			echo "SOCKET		= 	VSOCKET" >> /etc/odbc.ini
+			echo "CHARSET         =       UTF8" >> /etc/odbc.ini
+		fi
+
+		sed -i "5,15 s#^Database.*#Database\t=\t${database}#g" /etc/odbc.ini
+		sed -i "5,15 s#^SOCKET.*#SOCKET\t=\t${socket}#g" /etc/odbc.ini
+
+		mydbip=${ipaddr}
+		for ip in $local_host_list; do
+			if [ "${ip}" = "${mydbip}" ];then
+				mydbip="localhost"
+			fi
+		done
+
+		sed -i "5,15 s#^SERVER.*#SERVER\t=\t${mydbip}#g" /etc/odbc.ini
+
+		#rm -rf /etc/odbc.ini /etc/odbcinst.ini
+		#cp ${CONF_PATH}/script/odbc.ini /etc/odbc.ini
+		cp ${CONF_PATH}/script/odbcinst.ini /etc/odbcinst.ini
+	fi
+
+	if [ "$autostart" == "yes" ] || [ "$autostart" == "YES" ];then
+		sed -i "s#/opt.*autostart\.sh##g" /etc/rc.d/rc.local
+		echo "${FRAME_ROOT}/etc/script/autostart.sh" >> /etc/rc.d/rc.local
+		sed -i '/^$/d' /etc/rc.d/rc.local
+	fi
+}
+
+function cronRmLog()
+{
+	if [ -z "`grep -r "find ${FRAME_ROOT}/logs" /etc/crontab`" ];then
+		echo "0 2 * * * root find ${FRAME_ROOT}/logs -name \"*.trace*\" -mtime +15 -exec rm -f {} \;" >> /etc/crontab
+		echo "0 2 * * * root find ${FRAME_ROOT}/logs -name \"core.*\" -mtime +15 -exec rm -f {} \;" >> /etc/crontab
+	fi
+}
+
+function paramParse()
+{
+	for i in "$@";do
+		key=`echo "$i" | awk -F= '{print $1}'`
+		val=`echo "$i" | awk -F= '{print $2}'`
+
+		if [ "$key" == "rootpwd" ];then
+			rootpwd=$val
+		elif [ "$key" == "autostart" ];then
+			autostart=$val
+		fi
+	done
+}
+
+function main()
+{
+	rm -rf /opt/FaceServer/core.*
+
+	paramParse $@
+
+	chmod 754 ${CONF_PATH}/script/*.sh
+	chmod 754 ${FRAME_ROOT}/bin/*
+	chmod 754 ${FRAME_ROOT}/etc/script/update/*.sh
+
+	configxml
+	createLink
+	facecloudconf
+	cronRmLog
+}
+main $@
+
