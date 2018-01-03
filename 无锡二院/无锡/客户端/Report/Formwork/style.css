@@ -1,0 +1,21 @@
+﻿@charset "utf-8";
+/* CSS Document */
+@charset "utf-8";
+/* CSS Document */
+body{ font-family:Arial,"微软雅黑"; background:#f9f9f9; position:relative;}
+*{margin:0;padding:0;}
+img{border:0;}
+:focus{outline:0;}
+
+.top_title{ width:100%;height:50px; background:url(img/top_bj.jpg) no-repeat; line-height:50px; text-align:center; color:#fff; font-size:16px; font-weight:bold; margin:0 auto;}
+table{ width:100%;height:100%; background:#fff;border-collapse:collapse; margin:10px auto;}
+table thead tr th{ height:40px; background:#4375b3; font-size:14px; color:#fff; border-bottom:1px solid #f8f8f8;}
+table tbody tr td{ height:80px; padding:10px 0; font-size:14px; border-bottom:1px solid #f8f8f8; text-align:center;}
+table tbody tr:hover{ background:#c5d9eb; color:#fff;}
+.photo{ width:70px;height:70px;-moz-border-radius:10px;-webkit-border-radius:10px; float:left; background:#f9f9f9; margin: 0 10px; overflow:hidden;}
+.photo img{ width:70px;height:70px;}
+.photo2{ width:100px;height:100px;-moz-border-radius:10px;-webkit-border-radius:10px; float:left; background:#f9f9f9; margin: 0 10px; overflow:hidden;}
+.photo2 img{ width:100px;height:100px;}
+.alink{ font-size:14px; font-weight:bold; color:#4375b3;}
+.fanhui{ position:absolute; top:18px; right:30px;}
+.fanhui a{ color:#fff; text-decoration:none; font-size:14px; font-weight:bold; background:url(img/fh.png) no-repeat left center; padding-left:20px;}

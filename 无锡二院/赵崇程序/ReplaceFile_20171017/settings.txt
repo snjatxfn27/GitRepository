@@ -1,0 +1,6 @@
+数据库IP 192.168.2.66
+数据库名称 hospitaldatasys
+数据库用户名 root
+数据库密码 cr
+照片初始存储路径 D:/Picture
+照片转存路径 D:/work/无锡二院人群分析系统/ReplaceFile/Data
