@@ -1,0 +1,36 @@
+HTTP/1.1 200 OK
+Server: nginx/1.4.1
+Date: Sun, 25 Sep 2016 08:47:50 GMT
+Content-Length: 729
+Connection: close
+
+{
+	"ret":	0,
+	"ret_mes":	"Image reco successfully",
+	"list_size":	1,
+	"recognition_list":	[{
+			"person_rect":	{
+				"left":	28,
+				"top":	22,
+				"right":	132,
+				"bottom":	126,
+				"blur":	0.809045
+			},
+			"matching_list":	[{
+					"person_id":	"832",
+					"name":	"330184198908141811_1140952",
+					"birth":	"-",
+					"id_card":	"11112222",
+					"phone":	"13611215932",
+					"native_place":	"110020",
+					"addr":	"昆山",
+					"card_type":	128,
+					"sex":	"male",
+					"similarity":	80.034000,
+					"db_id":	"1",
+					"url":	"http://api.facecloud.reconova.com/facedb/1/persons/832",
+					"default_face_image_url":	"http://api.facecloud.reconova.com/facedb/1/persons/832/faces/100000000790/image"
+				}]
+		}],
+	"blur":	0
+}

@@ -1,0 +1,16 @@
+// FaceRecAccessSys.odl : type library source for FaceRecAccessSys.dll
+
+// This file will be processed by the MIDL compiler to produce the
+// type library (FaceRecAccessSys.tlb).
+
+[ uuid(D6D94A0A-D8E3-46B0-8462-3B57980074CC), version(1.0) ]
+library FaceRecAccessSys
+{
+	importlib("stdole32.tlb");
+	importlib("stdole2.tlb");
+
+
+
+	//{{AFX_APPEND_ODL}}
+	//}}AFX_APPEND_ODL}}
+};
