@@ -1,0 +1,22 @@
+IF NOT EXISTS(SELECT * FROM sys.Tables WHERE name='hhhh')
+
+CREATE TABLE 
+
+ hhhh
+(
+PersonId INT  IDENTITY(1,1)  PRIMARY KEY NOT NULL  ,
+FaceDBI INT   not null ,
+FaceDBPersonId varchar(255) not null, 
+Name varchar(255) not null, 
+GenderI INT   not null ,
+Birthday datetime not null, 
+Age INT   not null ,
+IdCard varchar(255) not null, 
+[National] varchar(255) not null, 
+Phone varchar(255) not null, 
+PresentAddress varchar(255) not null, 
+CreateTime datetime not null, 
+DelFlag INT   not null ,
+Remark varchar(255) not null, 
+DeviceId INT   not null 
+)
